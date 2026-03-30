@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>AI Smart Elder Care</title>
+    <link rel="manifest" href="data:application/manifest+json,{
+      \"name\": \"AI Smart Elder Care\",
+      \"short_name\": \"ElderAI\",
+      \"start_url\": \".\",
+      \"display\": \"standalone\",
+      \"background_color\": \"#f0f9ff\",
+      \"theme_color\": \"#00b8a9\",
+      \"icons\": [{
+        \"src\": \"https://cdn-icons-png.flaticon.com/512/5968/5968895.png\",
+        \"sizes\": \"192x192\",
+        \"type\": \"image/png\"
+      }]
+    }">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+        :root { --primary: #00b8a9; }
+        * { font-family: 'Poppins', sans-serif; }
+        body { background: linear-gradient(135deg, #f0f9ff 0%, #e0f2f1 100%); }
+        .elder-card:hover { transform: translateY(-6px); box-shadow: 0 25px 30px -10px rgb(0 184 169 / 0.15); }
+        .voice-pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .page { display: none; }
+        .page.active { display: block; }
+        .nav-btn.active { background-color: #00b8a9; color: white; }
+        .chat-bubble { max-width: 80%; padding: 14px 20px; border-radius: 20px; margin-bottom: 12px; }
+        .symptom-chip { transition: all 0.2s; }
+        .symptom-chip.active { background-color: #00b8a9; color: white; transform: scale(1.05); }
+        .confetti { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; }
+        .emergency-btn { animation: emergencyPulse 1.5s infinite; }
+        @keyframes emergencyPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        .ambulance-btn { animation: ambulancePulse 1.8s infinite; }
+        @keyframes ambulancePulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+        .family-btn { transition: all 0.3s; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+<!-- Top Bar -->
+<div class="bg-white shadow-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-[#00b8a9] text-white rounded-2xl flex items-center justify-center text-3xl">👵</div>
+            <div>
+                <h1 id="app-title" class="text-2xl font-semibold text-gray-800">AI Smart Elder Care</h1>
+                <p class="text-xs text-gray-500 -mt-1">Voice • Solapur</p>
+            </div>
+        </div>
+        <div class="flex gap-2 bg-gray-100 rounded-3xl p-1">
+            <button onclick="changeLanguage('en')" id="lang-en" class="lang-btn px-5 py-2 rounded-3xl text-sm font-medium active">🇬🇧 English</button>
+            <button onclick="changeLanguage('hi')" id="lang-hi" class="lang-btn px-5 py-2 rounded-3xl text-sm font-medium">🇮🇳 Hindi</button>
+            <button onclick="changeLanguage('mr')" id="lang-mr" class="lang-btn px-5 py-2 rounded-3xl text-sm font-medium">🇮🇳 Marathi</button>
+        </div>
+        <div onclick="configureGroqKey()" class="flex items-center gap-2 cursor-pointer bg-white border border-gray-300 hover:border-[#00b8a9] px-4 py-2 rounded-3xl text-sm font-medium">
+            <i class="fas fa-key"></i>
+            <span id="api-status" class="text-gray-700">Groq API Key</span>
+        </div>
+        <div onclick="startVoiceAssistant()" class="flex items-center gap-3 bg-white border-2 border-[#00b8a9] text-[#00b8a9] px-6 py-3 rounded-3xl font-semibold shadow-lg cursor-pointer voice-pulse">
+            <i class="fas fa-microphone text-2xl"></i>
+            <span class="text-lg" id="voice-status">Speak to AI</span>
+        </div>
+    </div>
+</div>
+
+<div class="max-w-7xl mx-auto px-6 pt-8">
+<!-- Navigation -->
+<div class="flex flex-wrap gap-2 bg-white rounded-3xl shadow p-2 mb-8">
+    <button onclick="navigateTo(0)" id="nav-0" class="nav-btn flex-1 flex items-center justify-center gap-2 py-4 px-6 rounded-3xl text-lg font-medium"><i class="fas fa-home"></i><span id="nav-home">Home</span></button>
+    <button onclick="navigateTo(1)" id="nav-1" class="nav-btn flex-1 flex items-center justify-center gap-2 py-4 px-6 rounded-3xl text-lg font-medium"><i class="fas fa-robot"></i><span id="nav-chat">AI Chatbot</span></button>
+    <button onclick="navigateTo(2)" id="nav-2" class="nav-btn flex-1 flex items-center justify-center gap-2 py-4 px-6 rounded-3xl text-lg font-medium"><i class="fas fa-heartbeat"></i><span id="nav-health">Health Check</span></button>
+    <button onclick="navigateTo(3)" id="nav-3" class="nav-btn flex-1 flex items-center justify-center gap-2 py-4 px-6 rounded-3xl text-lg font-medium"><i class="fas fa-bell"></i><span id="nav-reminders">Reminders</span></button>
+    <button onclick="navigateTo(5)" id="nav-5" class="nav-btn flex-1 flex items-center justify-center gap-2 py-4 px-6 rounded-3xl text-lg font-medium"><i class="fas fa-hand-holding-heart"></i><span id="nav-helpers">Helpers</span></button>
+    <button onclick="navigateTo(6)" id="nav-6" class="nav-btn flex-1 flex items-center justify-center gap-2 py-4 px-6 rounded-3xl text-lg font-medium"><i class="fas fa-users"></i><span id="nav-family">Family</span></button>
+    <button onclick="navigateTo(4)" id="nav-4" class="nav-btn flex-1 flex items-center justify-center gap-2 py-4 px-6 rounded-3xl text-lg font-medium text-red-600 hover:bg-red-50"><i class="fas fa-exclamation-triangle"></i><span id="nav-emergency">Emergency</span></button>
+</div>
+
+<!-- PAGE 0: HOME -->
+<div id="page-0" class="page active">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div class="lg:col-span-8 bg-white rounded-3xl p-10 shadow-xl">
+            <h2 id="home-greeting" class="text-5xl font-semibold leading-tight text-gray-800 mb-4">नमस्ते! 👵<br>How are you feeling today?</h2>
+            <div id="weather-card" class="flex items-center gap-4 bg-emerald-50 p-6 rounded-3xl mb-8">
+                <div class="text-5xl" id="weather-icon">☀️</div>
+                <div>
+                    <div class="text-3xl font-semibold" id="weather-temp">--°C</div>
+                    <div id="weather-desc" class="text-lg text-gray-600">Solapur weather</div>
+                    <div id="weather-advice" class="text-sm text-emerald-600 font-medium"></div>
+                </div>
+            </div>
+            <div class="flex flex-wrap gap-4">
+                <button onclick="navigateTo(2)" class="flex-1 bg-[#00b8a9] text-white py-6 rounded-3xl text-2xl font-semibold">🏥 Health Check</button>
+                <button onclick="navigateTo(3)" class="flex-1 bg-amber-500 text-white py-6 rounded-3xl text-2xl font-semibold">⏰ Reminders</button>
+                <button onclick="navigateTo(5)" class="flex-1 bg-purple-500 text-white py-6 rounded-3xl text-2xl font-semibold">🤝 Helpers</button>
+                <button onclick="startTeleconsult()" class="flex-1 bg-blue-600 text-white py-6 rounded-3xl text-2xl font-semibold flex items-center justify-center gap-3"><i class="fas fa-video"></i> Talk to Doctor (Free)</button>
+            </div>
+        </div>
+        <div class="lg:col-span-4 space-y-6">
+            <div class="bg-white rounded-3xl p-8 shadow-xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 id="med-title" class="text-2xl font-semibold">Medications Today</h3>
+                    <div id="streak-badge" class="px-4 py-1 bg-emerald-100 text-emerald-700 rounded-3xl text-sm font-medium flex items-center gap-1">🔥 <span id="streak-count">0</span> day streak</div>
+                </div>
+                <div id="home-medications" class="space-y-3"></div>
+                <div class="mt-6 bg-gray-100 rounded-3xl p-4">
+                    <div class="flex justify-between text-sm mb-2">
+                        <span id="taken-count">0 of 2 taken</span>
+                        <span class="text-emerald-600">Refill in 5 days</span>
+                    </div>
+                    <div class="h-3 bg-gray-200 rounded-3xl overflow-hidden">
+                        <div id="med-progress" class="h-3 bg-[#00b8a9] rounded-3xl transition-all"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PAGE 1: AI CHATBOT -->
+<div id="page-1" class="page">
+    <div class="bg-white rounded-3xl shadow-xl p-8 max-w-3xl mx-auto">
+        <h2 class="text-4xl font-semibold mb-8">AI Chatbot <span class="text-sm bg-emerald-100 text-emerald-700 px-3 py-1 rounded-3xl">Groq • Fast</span></h2>
+        <div id="chat-window" class="h-96 overflow-y-auto mb-6 bg-gray-50 rounded-3xl p-6 space-y-6"></div>
+        <div class="flex gap-4">
+            <input id="chat-input" type="text" placeholder="Type your question..." class="flex-1 py-6 px-8 text-xl rounded-3xl border-2 border-gray-200 focus:border-[#00b8a9]">
+            <button onclick="sendChatMessage()" class="bg-[#00b8a9] px-12 rounded-3xl text-white text-2xl"><i class="fas fa-paper-plane"></i></button>
+            <button onclick="voiceToChat()" class="bg-amber-400 px-12 rounded-3xl text-white text-2xl"><i class="fas fa-microphone"></i></button>
+        </div>
+    </div>
+</div>
+
+<!-- PAGE 2: HEALTH CHECK -->
+<div id="page-2" class="page">
+    <div class="max-w-3xl mx-auto bg-white rounded-3xl p-10 shadow-xl">
+        <h2 id="health-heading" class="text-4xl font-semibold mb-6">How are you feeling?</h2>
+        <p id="health-subtitle" class="text-gray-600 mb-8">Tap your symptoms:</p>
+        <div id="symptom-buttons" class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8"></div>
+        <div class="mb-8">
+            <h3 id="remedies-title" class="text-xl font-medium mb-4">Popular Indian Home Remedies</h3>
+            <div id="indian-remedies" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
+        </div>
+        <textarea id="symptoms-input" rows="2" class="w-full p-5 text-lg rounded-3xl border-2 border-gray-200 mb-6" placeholder="Any other symptoms..."></textarea>
+        <button onclick="analyzeSymptoms()" id="analyze-btn" class="w-full bg-gradient-to-r from-[#00b8a9] to-teal-500 py-6 text-2xl font-semibold text-white rounded-3xl">Get Simple Advice</button>
+        <div id="health-result" class="mt-8"></div>
+    </div>
+</div>
+
+<!-- PAGE 3: REMINDERS -->
+<div id="page-3" class="page">
+    <div class="bg-white rounded-3xl p-8 shadow-xl">
+        <div class="flex justify-between items-center mb-8">
+            <h2 id="reminders-heading" class="text-4xl font-semibold">Reminders ⏰</h2>
+            <button onclick="showAddReminderModal()" class="bg-[#00b8a9] text-white px-8 py-4 rounded-3xl text-xl font-medium flex items-center gap-3"><i class="fas fa-plus"></i> Add New</button>
+        </div>
+        <div class="mb-10">
+            <h3 id="quick-title" class="text-xl font-medium mb-4">Quick Reminders</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="quick-reminders"></div>
+        </div>
+        <h3 id="my-reminders-title" class="text-2xl font-semibold mb-6">My Reminders</h3>
+        <div id="reminders-list" class="space-y-4"></div>
+    </div>
+</div>
+
+<!-- Reminder Modal -->
+<div id="reminder-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+    <div class="bg-white rounded-3xl p-8 w-full max-w-md mx-4">
+        <h3 id="modal-title" class="text-3xl font-semibold mb-6">Add New Reminder</h3>
+        <input id="reminder-title" type="text" placeholder="What to remind?" class="w-full p-5 text-xl rounded-3xl border-2 mb-6">
+        <input id="reminder-time" type="time" class="w-full p-5 text-xl rounded-3xl border-2 mb-6">
+        <div class="flex gap-4">
+            <button onclick="hideReminderModal()" class="flex-1 py-5 border-2 rounded-3xl text-lg">Cancel</button>
+            <button onclick="saveReminder()" class="flex-1 py-5 bg-[#00b8a9] text-white rounded-3xl text-lg">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- PAGE 5: HELPERS -->
+<div id="page-5" class="page">
+    <h2 id="helpers-heading" class="text-4xl font-semibold mb-8">Helpers Near You • Solapur, Maharashtra</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="helpers-list"></div>
+</div>
+
+<!-- PAGE 6: FAMILY DASHBOARD -->
+<div id="page-6" class="page">
+    <h2 id="family-heading" class="text-4xl font-semibold mb-8">Family Dashboard 👨‍👩‍👧‍👦</h2>
+    <div class="bg-white rounded-3xl p-8 shadow-xl">
+        <div class="mb-8 bg-emerald-50 rounded-3xl p-6">
+            <h3 class="text-2xl font-semibold mb-4 flex items-center gap-2"><i class="fas fa-share-alt"></i> Live Family View</h3>
+            <div id="shared-med-status" class="flex justify-between bg-white rounded-2xl p-5 mb-4">
+                <div>Medications taken today: <span id="shared-taken" class="font-bold text-emerald-600">0/2</span></div>
+                <div class="text-emerald-600">✅ Visible to family</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+            <button onclick="sendDailyUpdate()" class="family-btn bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-3xl p-7 text-center hover:scale-105 shadow-lg">
+                <div class="text-5xl mb-3">❤️</div>
+                <div id="daily-update-btn-text" class="text-2xl font-semibold">I’m OK Today</div>
+                <p class="text-sm opacity-90 mt-1">Send loving update</p>
+            </button>
+            <button onclick="shareLiveLocation()" class="family-btn bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-3xl p-7 text-center hover:scale-105 shadow-lg">
+                <div class="text-5xl mb-3">📍</div>
+                <div id="location-btn-text" class="text-2xl font-semibold">Share My Location</div>
+                <p class="text-sm opacity-90 mt-1">Send live map</p>
+            </button>
+            <button onclick="startVoiceMessage()" class="family-btn bg-gradient-to-br from-purple-500 to-pink-600 text-white rounded-3xl p-7 text-center hover:scale-105 shadow-lg">
+                <div class="text-5xl mb-3">🎤</div>
+                <div id="voice-btn-text" class="text-2xl font-semibold">Send Voice Message</div>
+                <p class="text-sm opacity-90 mt-1">Record 15-sec note</p>
+            </button>
+        </div>
+
+        <h3 class="text-2xl font-semibold mb-4">Emergency WhatsApp Contacts</h3>
+        <div class="flex gap-3 mb-6">
+            <input id="family-name" type="text" placeholder="Name (e.g. Son - Raj)" class="flex-1 p-5 text-xl rounded-3xl border-2">
+            <input id="family-phone" type="tel" placeholder="Phone with country code (e.g. 919876543210)" class="flex-1 p-5 text-xl rounded-3xl border-2">
+            <button onclick="addFamilyContact()" class="bg-[#00b8a9] text-white px-8 rounded-3xl text-xl">Add</button>
+        </div>
+        <div id="family-contacts-list" class="space-y-3"></div>
+        <p class="text-sm text-gray-500 mt-6">These numbers receive WhatsApp alerts instantly.</p>
+    </div>
+</div>
+
+<!-- PAGE 4: EMERGENCY + AMBULANCE -->
+<div id="page-4" class="page flex items-center justify-center min-h-[500px]">
+    <div class="text-center max-w-lg">
+        <div onclick="triggerEmergency()" class="emergency-btn mx-auto w-72 h-72 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center cursor-pointer shadow-2xl">
+            <div class="text-white text-center">
+                <i class="fas fa-exclamation-triangle text-9xl mb-6"></i>
+                <p class="text-6xl font-bold">EMERGENCY</p>
+            </div>
+        </div>
+        <p id="emergency-text" class="mt-12 text-2xl text-gray-600">Help will reach immediately via WhatsApp</p>
+        <div id="emergency-status" class="mt-8 text-2xl font-semibold text-red-600"></div>
+
+        <div class="mt-14">
+            <h3 id="ambulance-heading" class="text-3xl font-semibold mb-6 text-red-600">🚑 Need an Ambulance?</h3>
+            <button onclick="callAmbulance()" class="ambulance-btn w-full bg-red-600 hover:bg-red-700 text-white py-7 text-3xl font-bold rounded-3xl shadow-2xl flex items-center justify-center gap-4">
+                <i class="fas fa-ambulance text-4xl"></i>
+                <span id="ambulance-btn-text">Call 108 Ambulance Now</span>
+            </button>
+            <p class="text-sm text-gray-500 mt-4">Free government ambulance • Solapur</p>
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+<div id="emergency-number-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[9999]">
+    <div class="bg-white rounded-3xl p-8 w-full max-w-md mx-4 text-center">
+        <h3 class="text-3xl font-semibold mb-2">No family number saved yet</h3>
+        <p class="text-gray-600 mb-6">Please enter a family member's WhatsApp number to send the alert</p>
+        <input id="modal-phone" type="tel" placeholder="919876543210" class="w-full p-5 text-2xl rounded-3xl border-2 mb-6 text-center">
+        <div class="flex gap-4">
+            <button onclick="hideEmergencyModal()" class="flex-1 py-5 border-2 rounded-3xl text-lg">Cancel</button>
+            <button onclick="saveQuickEmergencyNumber()" class="flex-1 py-5 bg-red-600 text-white rounded-3xl text-lg">Send Alert Now</button>
+        </div>
+    </div>
+</div>
+
+<div id="daily-mood-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[9999]">
+    <div class="bg-white rounded-3xl p-8 w-full max-w-md mx-4">
+        <h3 id="mood-title" class="text-3xl font-semibold mb-6 text-center">How are you feeling today?</h3>
+        <div id="mood-options" class="grid grid-cols-4 gap-4 mb-8"></div>
+        <div class="flex gap-4">
+            <button onclick="hideDailyMoodModal()" class="flex-1 py-5 border-2 rounded-3xl text-lg">Cancel</button>
+            <button onclick="confirmDailyUpdate()" id="send-update-btn" class="flex-1 py-5 bg-emerald-600 text-white rounded-3xl text-lg">Send to Family</button>
+        </div>
+    </div>
+</div>
+
+<div id="voice-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[9999]">
+    <div class="bg-white rounded-3xl p-8 w-full max-w-md mx-4 text-center">
+        <h3 id="voice-modal-title" class="text-3xl font-semibold mb-6">Record Voice Message (15 sec)</h3>
+        <button onclick="toggleVoiceRecording()" id="record-btn" class="w-28 h-28 mx-auto flex items-center justify-center bg-red-500 text-white rounded-full text-5xl shadow-2xl mb-4"><i class="fas fa-microphone"></i></button>
+        <p id="recording-status" class="text-lg font-medium text-red-600 mb-2">Tap to start recording</p>
+        <div id="timer" class="text-4xl font-mono">00:00</div>
+        <audio id="voice-preview" controls class="w-full mt-6 hidden"></audio>
+        <div class="flex gap-4 mt-8">
+            <button onclick="hideVoiceModal()" class="flex-1 py-5 border-2 rounded-3xl text-lg">Cancel</button>
+            <button onclick="sendVoiceToFamily()" id="send-voice-btn" class="flex-1 py-5 bg-purple-600 text-white rounded-3xl text-lg hidden">Send to Family</button>
+        </div>
+    </div>
+</div>
+<footer class="bg-gradient-to-br from-gray-900 to-black text-white border-t border-[#00b8a9]/30 mt-16">
+    
+    <div class="w-full px-10 py-16">
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+            
+            <!-- Section 1 -->
+            <div>
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="w-14 h-14 bg-[#00b8a9] text-white rounded-3xl flex items-center justify-center text-4xl">
+                        👵
+                    </div>
+                    <h3 class="text-3xl font-semibold">AI Smart Elder Care</h3>
+                </div>
+
+                <p class="text-[#00b8a9] font-medium mb-4">
+                    Caring for elders with AI and technology
+                </p>
+
+                <p class="text-gray-400">
+                    Helping elderly people live safer and healthier lives with AI support,
+                    emergency help and family connectivity.
+                </p>
+            </div>
+
+            <!-- Section 2 -->
+            <div>
+                <h4 class="text-[#00b8a9] font-semibold text-xl mb-6">
+                    QUICK LINKS
+                </h4>
+
+                <div class="space-y-4">
+                    <p onclick="navigateTo(0)" class="cursor-pointer hover:text-[#00b8a9]">Home</p>
+                    <p onclick="navigateTo(2)" class="cursor-pointer hover:text-[#00b8a9]">Health Check</p>
+                    <p onclick="navigateTo(3)" class="cursor-pointer hover:text-[#00b8a9]">Reminders</p>
+                    <p onclick="navigateTo(4)" class="cursor-pointer hover:text-[#00b8a9]">Emergency</p>
+                    <p onclick="navigateTo(6)" class="cursor-pointer hover:text-[#00b8a9]">Family</p>
+                    <p onclick="navigateTo(1)" class="cursor-pointer hover:text-[#00b8a9]">AI Chat</p>
+                </div>
+            </div>
+
+            <!-- Section 3 -->
+            <div>
+                <h4 class="text-[#00b8a9] font-semibold text-xl mb-6">
+                    DEVELOPED BY
+                </h4>
+
+                <p class="text-2xl font-semibold">Ankur Dhole</p>
+                <p class="text-gray-400">BTech IT - WIT Solapur</p>
+                <p class="text-gray-400 mt-2">Solapur, Maharashtra</p>
+                <p class="text-emerald-400 mt-2">Hackathon Project 2026</p>
+            </div>
+
+        </div>
+
+        <!-- Bottom Line -->
+        <div class="border-t border-gray-700 mt-10 pt-4 text-center text-sm text-gray-400">
+            © 2026 AI Smart Elder Care | All Rights Reserved
+        </div>
+
+    </div>
+</footer>
+<canvas id="confetti" class="confetti"></canvas>
+
+<script>
+// ====================== FULL WORKING CODE ======================
+const translations = {
+    en: { appTitle: "AI Smart Elder Care", homeGreeting: "नमस्ते! 👵<br>How are you feeling today?", navHome: "Home", navChat: "AI Chatbot", navHealth: "Health Check", navReminders: "Reminders", navHelpers: "Helpers", navFamily: "Family", navEmergency: "Emergency", medTitle: "Medications Today", healthHeading: "How are you feeling?", healthSubtitle: "Tap your symptoms:", remediesTitle: "Popular Indian Home Remedies", remindersHeading: "Reminders ⏰", quickTitle: "Quick Reminders", myRemindersTitle: "My Reminders", modalTitle: "Add New Reminder", helpersHeading: "Helpers Near You • Solapur, Maharashtra", familyHeading: "Family Dashboard 👨‍👩‍👧‍👦", emergencyText: "Help will reach immediately via WhatsApp", voiceStatus: "Speak to AI", ambulanceHeading: "🚑 Need an Ambulance?", ambulanceBtn: "Call 108 Ambulance Now", dailyUpdateBtn: "I’m OK Today ❤️", locationBtn: "Share My Location", voiceBtn: "Send Voice Message", moodTitle: "How are you feeling today?" },
+    hi: { appTitle: "AI स्मार्ट एल्डर केयर", homeGreeting: "नमस्ते! 👵<br>आज आप कैसे महसूस कर रहे हैं?", navHome: "होम", navChat: "AI चैटबॉट", navHealth: "स्वास्थ्य जाँच", navReminders: "रिमाइंडर", navHelpers: "हेल्पर्स", navFamily: "परिवार", navEmergency: "इमरजेंसी", medTitle: "आज की दवाइयाँ", healthHeading: "आप कैसा महसूस कर रहे हैं?", healthSubtitle: "अपने लक्षण चुनें:", remediesTitle: "लोकप्रिय भारतीय घरेलू उपाय", remindersHeading: "रिमाइंडर ⏰", quickTitle: "त्वरित रिमाइंडर", myRemindersTitle: "मेरे रिमाइंडर", modalTitle: "नया रिमाइंडर जोड़ें", helpersHeading: "आपके पास हेल्पर्स • सोलापुर, महाराष्ट्र", familyHeading: "परिवार डैशबोर्ड 👨‍👩‍👧‍👦", emergencyText: "WhatsApp पर मदद तुरंत पहुँचेगी", voiceStatus: "AI से बोलें", ambulanceHeading: "🚑 एंबुलेंस चाहिए?", ambulanceBtn: "108 एंबुलेंस को कॉल करें", dailyUpdateBtn: "मैं आज ठीक हूँ ❤️", locationBtn: "मेरा लोकेशन शेयर करें", voiceBtn: "वॉइस मैसेज भेजें", moodTitle: "आज आप कैसा महसूस कर रहे हैं?" },
+    mr: { appTitle: "AI स्मार्ट एल्डर केअर", homeGreeting: "नमस्कार! 👵<br>आज तुम्हाला कसं वाटतंय?", navHome: "होम", navChat: "AI चॅटबॉट", navHealth: "आरोग्य तपासणी", navReminders: "रिमाइंडर्स", navHelpers: "हेल्पर्स", navFamily: "कुटुंब", navEmergency: "आपत्कालीन", medTitle: "आजच्या औषधांची", healthHeading: "तुम्हाला कसं वाटतंय?", healthSubtitle: "लक्षणे निवडा:", remediesTitle: "लोकप्रिय भारतीय घरगुती उपाय", remindersHeading: "रिमाइंडर्स ⏰", quickTitle: "त्वरित रिमाइंडर्स", myRemindersTitle: "माझे रिमाइंडर्स", modalTitle: "नवीन रिमाइंडर जोडा", helpersHeading: "तुमच्या जवळ हेल्पर्स • सोलापुर, महाराष्ट्र", familyHeading: "कुटुंब डॅशबोर्ड 👨‍👩‍👧‍👦", emergencyText: "WhatsApp वर मदत त्वरित पोहोचेल", voiceStatus: "AI शी बोला", ambulanceHeading: "🚑 एंबुलन्स हवी आहे?", ambulanceBtn: "108 एंबुलन्सला कॉल करा", dailyUpdateBtn: "मी आज ठीक आहे ❤️", locationBtn: "माझे लोकेशन शेअर करा", voiceBtn: "वॉइस मेसेज पाठवा", moodTitle: "आज तुम्हाला कसं वाटतंय?" }
+};
+let currentLanguage = 'en';
+
+let GROQ_API_KEY = localStorage.getItem('groq_key') || '';
+const MODEL = "llama-3.1-8b-instant";
+
+async function callGroq(prompt) {
+    if (!GROQ_API_KEY) throw new Error("NO_KEY");
+    const systemPrompt = `You are a warm, patient, caring AI elder care assistant for seniors in Maharashtra, India. Use very simple, kind ${currentLanguage === 'hi' ? 'Hindi' : currentLanguage === 'mr' ? 'Marathi' : 'English'} language. For any symptom, give VERY SHORT advice (3-4 lines max). Always suggest 1-2 safe traditional Indian home remedies using kitchen items. End with: "Yeh ghar ke nuskhe hain. Doctor se zaroor salah lein." Never suggest anything strong or medicine without doctor.`;
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: MODEL, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: prompt }], temperature: 0.7, max_tokens: 500 })
+    });
+    if (!res.ok) throw new Error(res.status === 429 ? "RATE_LIMIT" : "CONNECTION_ERROR");
+    const data = await res.json();
+    return data.choices[0].message.content.trim();
+}
+
+let reminders = JSON.parse(localStorage.getItem('reminders')) || [];
+let medications = JSON.parse(localStorage.getItem('medications')) || [{ id: 1, name: "BP Tablet", dosage: "5 mg", time: "9:00 AM", takenToday: true, stock: 12 }, { id: 2, name: "Vitamin D", dosage: "1000 IU", time: "8:00 AM", takenToday: false, stock: 8 }];
+let familyContacts = JSON.parse(localStorage.getItem('familyContacts')) || [];
+const commonSymptoms = ["Fever", "Headache", "Cough", "Cold", "Body Pain", "Breathlessness", "Chest Pain", "Dizziness", "Weakness", "Stomach Pain", "Joint Pain"];
+const quickPresets = [{title: "Drink Water", time: "09:00"}, {title: "Take Morning Medicine", time: "08:30"}, {title: "Morning Walk", time: "07:00"}, {title: "Evening Medicine", time: "19:00"}, {title: "Prayer Time", time: "18:30"}, {title: "Dinner Time", time: "20:00"}];
+let selectedSymptoms = [];
+const indianRemediesData = { en: [{name: "Haldi Doodh", desc: "Golden milk for joint pain & immunity"}, {name: "Tulsi + Adrak Kadha", desc: "For cough & cold"}, {name: "Jeera Water", desc: "For stomach gas & digestion"}, {name: "Ajwain Water", desc: "For bloating & indigestion"}, {name: "Ginger Tea", desc: "For headache & dizziness"}], hi: [{name: "हल्दी दूध", desc: "जोड़ों के दर्द और इम्यूनिटी के लिए"}, {name: "तुलसी-अदरक काढ़ा", desc: "खाँसी और सर्दी के लिए"}, {name: "जीरा पानी", desc: "पेट की गैस और पाचन के लिए"}, {name: "अजवाइन पानी", desc: "पेट फूलना और अपच के लिए"}, {name: "अदरक की चाय", desc: "सिरदर्द और चक्कर के लिए"}], mr: [{name: "हळद दूध", desc: "सांधेदुखी आणि रोगप्रतिकारक शक्तीसाठी"}, {name: "तुळशी-अद्रक काढा", desc: "खोकला आणि सर्दीसाठी"}, {name: "जिरे पाणी", desc: "पोटाची गॅस आणि पचनासाठी"}, {name: "ओवा पाणी", desc: "पोट फुगणे आणि अपचनासाठी"}, {name: "आले चहा", desc: "डोकेदुखी आणि चक्कर येण्यासाठी"}] };
+
+function launchConfetti() {
+    const canvas = document.getElementById('confetti');
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+    const ctx = canvas.getContext('2d');
+    const colors = ['#00b8a9', '#f59e0b', '#10b981'];
+    let particles = [];
+    for (let i = 0; i < 150; i++) {
+        particles.push({x: Math.random()*canvas.width, y: Math.random()*canvas.height-canvas.height, r: Math.random()*6+2, d: Math.random()*150, color: colors[Math.floor(Math.random()*colors.length)], tilt: Math.random()*10-5, tiltAngle: 0, tiltAngleIncrement: Math.random()*0.07+0.05});
+    }
+    let animation = setInterval(() => {
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        let alive = 0;
+        particles.forEach(p => {
+            p.tiltAngle += p.tiltAngleIncrement;
+            p.y += (Math.cos(p.d) + 3 + p.r/2)/2;
+            p.x += Math.sin(p.d)*2;
+            p.tilt = Math.sin(p.tiltAngle)*15;
+            ctx.beginPath(); ctx.lineWidth = p.r; ctx.strokeStyle = p.color;
+            ctx.moveTo(p.x + p.tilt + p.r/4, p.y);
+            ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r/4);
+            ctx.stroke();
+            if (p.y < canvas.height) alive++;
+        });
+        if (alive === 0) { clearInterval(animation); ctx.clearRect(0,0,canvas.width,canvas.height); }
+    }, 16);
+    setTimeout(() => canvas.width = 0, 3000);
+}
+
+function renderMedications() {
+    const container = document.getElementById('home-medications');
+    let takenCount = medications.filter(m => m.takenToday).length;
+    container.innerHTML = medications.map(m => `
+        <div class="flex justify-between items-center bg-gray-50 p-4 rounded-2xl">
+            <div class="flex-1"><span class="font-medium">${m.name}</span> <span class="text-xs text-gray-500 ml-2">${m.dosage} • ${m.time}</span></div>
+            ${m.takenToday ? `<span class="px-5 py-1 bg-emerald-100 text-emerald-700 rounded-3xl text-sm font-medium">✅ Taken</span>` : `<button onclick="markMedicationTaken(${m.id}); event.stopImmediatePropagation();" class="px-6 py-2 bg-[#00b8a9] hover:bg-teal-600 text-white text-sm font-medium rounded-3xl">Mark as Taken</button>`}
+        </div>
+    `).join('');
+    document.getElementById('taken-count').innerHTML = `${takenCount} of ${medications.length} taken`;
+    document.getElementById('med-progress').style.width = `${(takenCount / medications.length) * 100}%`;
+    document.getElementById('streak-count').textContent = takenCount;
+    if (document.getElementById('shared-taken')) document.getElementById('shared-taken').innerHTML = `${takenCount}/${medications.length}`;
+}
+function markMedicationTaken(id) {
+    const med = medications.find(m => m.id === id);
+    if (med) {
+        med.takenToday = true; if (med.stock) med.stock--;
+        localStorage.setItem('medications', JSON.stringify(medications));
+        renderMedications(); launchConfetti(); speak("Taken! 🎉");
+        if (med.stock && med.stock <= 3) setTimeout(() => alert(`🔄 Refill alert: Only ${med.stock} ${med.name} left!`), 1200);
+    }
+}
+
+function renderFamilyContacts() {
+    const container = document.getElementById('family-contacts-list');
+    if (familyContacts.length === 0) {
+        container.innerHTML = `<p class="text-gray-500 text-center py-8">No contacts yet. Add them above.</p>`;
+        return;
+    }
+    container.innerHTML = familyContacts.map(c => `
+        <div class="flex justify-between items-center bg-emerald-50 p-5 rounded-3xl">
+            <div><div class="font-semibold">${c.name}</div><div class="text-emerald-700">📱 ${c.phone}</div></div>
+            <button onclick="deleteFamilyContact(${c.id});" class="text-red-500 text-2xl">🗑️</button>
+        </div>
+    `).join('');
+}
+function addFamilyContact() {
+    const name = document.getElementById('family-name').value.trim();
+    let phone = document.getElementById('family-phone').value.trim();
+    if (!name || !phone) return alert("Please enter both name and phone");
+    phone = phone.replace(/\D/g, '');
+    if (!phone.startsWith('91')) phone = '91' + phone;
+    familyContacts.unshift({ id: Date.now(), name, phone });
+    localStorage.setItem('familyContacts', JSON.stringify(familyContacts));
+    renderFamilyContacts();
+    document.getElementById('family-name').value = ''; document.getElementById('family-phone').value = '';
+    speak("Family contact added");
+}
+function deleteFamilyContact(id) {
+    familyContacts = familyContacts.filter(c => c.id !== id);
+    localStorage.setItem('familyContacts', JSON.stringify(familyContacts));
+    renderFamilyContacts();
+}
+
+async function triggerEmergency() {
+    const statusEl = document.getElementById('emergency-status');
+    statusEl.innerHTML = `🔄 Checking family contacts...`;
+    if (familyContacts.length === 0) {
+        document.getElementById('emergency-number-modal').classList.remove('hidden');
+        return;
+    }
+    await sendEmergencyAlerts();
+}
+function hideEmergencyModal() { document.getElementById('emergency-number-modal').classList.add('hidden'); }
+async function saveQuickEmergencyNumber() {
+    let phone = document.getElementById('modal-phone').value.trim();
+    if (!phone) return alert("Please enter phone number");
+    phone = phone.replace(/\D/g, '');
+    if (!phone.startsWith('91')) phone = '91' + phone;
+    familyContacts.unshift({ id: Date.now(), name: "Quick Contact", phone });
+    hideEmergencyModal();
+    await sendEmergencyAlerts();
+}
+async function sendEmergencyAlerts() {
+    const statusEl = document.getElementById('emergency-status');
+    statusEl.innerHTML = `📍 Getting your location...`;
+    let lat = 17.66, lng = 75.91, locationText = "https://maps.google.com/?q=17.66,75.91";
+    if (navigator.geolocation) {
+        try {
+            const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000 }));
+            lat = pos.coords.latitude; lng = pos.coords.longitude;
+            locationText = `https://maps.google.com/?q=${lat},${lng}`;
+        } catch(e) {}
+    }
+    const time = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    const message = encodeURIComponent(`🚨 EMERGENCY from AI Smart Elder Care (Solapur)\n\n👵 I pressed the Emergency button at ${time}\n📍 Live Location: ${locationText}\n\nPlease come immediately! I need help ❤️\nSent via Elder Care App`);
+    let sentCount = 0;
+    statusEl.innerHTML = `📤 Sending WhatsApp...`;
+    for (const contact of familyContacts) {
+        const waLink = `https://wa.me/${contact.phone}?text=${message}`;
+        window.open(waLink, '_blank');
+        sentCount++;
+        await new Promise(r => setTimeout(r, 600));
+    }
+    statusEl.innerHTML = `✅ WhatsApp alerts sent to <b>${sentCount}</b> family members!`;
+    speak("Emergency alert sent to your family on WhatsApp. Help is coming.");
+    launchConfetti();
+    familyContacts = familyContacts.filter(c => c.name !== "Quick Contact");
+    localStorage.setItem('familyContacts', JSON.stringify(familyContacts));
+    setTimeout(() => statusEl.innerHTML = '', 12000);
+}
+
+function callAmbulance() {
+    speak(currentLanguage === 'mr' ? "108 एंबुलन्सला कॉल करत आहे..." : currentLanguage === 'hi' ? "108 एंबुलेंस को कॉल कर रहे हैं..." : "Calling 108 ambulance now...");
+    window.location.href = "tel:108";
+}
+
+function renderHelpers() {
+    document.getElementById('helpers-list').innerHTML = `
+        <div class="elder-card bg-white rounded-3xl p-7 flex flex-col">
+            <div class="flex justify-between"><span class="font-semibold text-lg">Shweta Home Nursing Care</span><span class="text-emerald-600 text-sm">1.1 km</span></div>
+            <p class="text-gray-600 text-sm mt-1">Home nursing & elder attendant • Jule Solapur</p>
+            <a href="tel:9876543210" class="mt-auto bg-emerald-100 text-emerald-700 text-center py-3 rounded-2xl font-medium">📞 Call Now</a>
+        </div>
+        <div class="elder-card bg-white rounded-3xl p-7 flex flex-col">
+            <div class="flex justify-between"><span class="font-semibold text-lg">Siddhivinayak Home Health</span><span class="text-emerald-600 text-sm">1.8 km</span></div>
+            <p class="text-gray-600 text-sm mt-1">Full-time nurse + physio • Sadar Bazar</p>
+            <a href="tel:9876543211" class="mt-auto bg-emerald-100 text-emerald-700 text-center py-3 rounded-2xl font-medium">📞 Call Now</a>
+        </div>
+        <div class="elder-card bg-white rounded-3xl p-7 flex flex-col">
+            <div class="flex justify-between"><span class="font-semibold text-lg">Preference 24hr Medical Store</span><span class="text-emerald-600 text-sm">800 m</span></div>
+            <p class="text-gray-600 text-sm mt-1">24×7 pharmacy + medicine delivery</p>
+            <a href="tel:9876543212" class="mt-auto bg-emerald-100 text-emerald-700 text-center py-3 rounded-2xl font-medium">📞 Call Now</a>
+        </div>
+        <div class="elder-card bg-white rounded-3xl p-7 flex flex-col">
+            <div class="flex justify-between"><span class="font-semibold text-lg">Sai Super Market</span><span class="text-emerald-600 text-sm">1.3 km</span></div>
+            <p class="text-gray-600 text-sm mt-1">Grocery + daily essentials delivery</p>
+            <a href="tel:9876543213" class="mt-auto bg-emerald-100 text-emerald-700 text-center py-3 rounded-2xl font-medium">📞 Call Now</a>
+        </div>
+        <div class="elder-card bg-white rounded-3xl p-7 flex flex-col">
+            <div class="flex justify-between"><span class="font-semibold text-lg">Aas Nursing Bureau</span><span class="text-emerald-600 text-sm">2.4 km</span></div>
+            <p class="text-gray-600 text-sm mt-1">24-hour home nursing • Sadar Bazar</p>
+            <a href="tel:9876543214" class="mt-auto bg-emerald-100 text-emerald-700 text-center py-3 rounded-2xl font-medium">📞 Call Now</a>
+        </div>
+        <div class="elder-card bg-white rounded-3xl p-7 flex flex-col">
+            <div class="flex justify-between"><span class="font-semibold text-lg">Shri Mahalaxmi Oxygen</span><span class="text-emerald-600 text-sm">3.2 km</span></div>
+            <p class="text-gray-600 text-sm mt-1">Oxygen cylinder refill & delivery</p>
+            <a href="tel:9876543215" class="mt-auto bg-emerald-100 text-emerald-700 text-center py-3 rounded-2xl font-medium">📞 Call Now</a>
+        </div>
+    `;
+}
+
+let selectedMood = "";
+const moods = [
+    {emoji:"😊", label:{en:"Happy", hi:"खुश", mr:"आनंदी"}},
+    {emoji:"🙂", label:{en:"Good", hi:"अच्छा", mr:"चांगले"}},
+    {emoji:"😌", label:{en:"Peaceful", hi:"शांत", mr:"शांत"}},
+    {emoji:"🥱", label:{en:"Tired", hi:"थका", mr:"थकले"}}
+];
+
+function sendDailyUpdate() {
+    selectedMood = "";
+    const container = document.getElementById('mood-options');
+    container.innerHTML = moods.map(m => `<button onclick="selectMood('${m.emoji}')" class="text-6xl hover:scale-110 transition p-4 rounded-2xl">${m.emoji}<br><span class="text-sm mt-1 block">${m.label[currentLanguage]}</span></button>`).join('');
+    document.getElementById('daily-mood-modal').classList.remove('hidden');
+}
+function selectMood(emoji) { selectedMood = emoji; document.getElementById('send-update-btn').classList.remove('opacity-50'); }
+function hideDailyMoodModal() { document.getElementById('daily-mood-modal').classList.add('hidden'); }
+async function confirmDailyUpdate() {
+    if (!selectedMood) return;
+    hideDailyMoodModal();
+    const takenCount = medications.filter(m => m.takenToday).length;
+    const temp = document.getElementById('weather-temp').textContent || "--°C";
+    const time = new Date().toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+    const message = encodeURIComponent(`❤️ *I’m OK Today* from Solapur\n\n👵 Time: ${time}\n💊 Medicines taken: ${takenCount}/${medications.length}\n🌡️ Weather: ${temp}\n😊 Feeling: ${selectedMood}\n\nLove you all! Please don’t worry ❤️\nSent from AI Smart Elder Care`);
+    for (const c of familyContacts) {
+        window.open(`https://wa.me/${c.phone}?text=${message}`, '_blank');
+        await new Promise(r => setTimeout(r, 400));
+    }
+    speak(currentLanguage === 'mr' ? "कुटुंबाला अपडेट पाठवला!" : currentLanguage === 'hi' ? "परिवार को अपडेट भेज दिया!" : "Daily update sent to family!");
+    launchConfetti();
+}
+
+async function shareLiveLocation() {
+    const status = document.createElement('div'); status.innerHTML = `<div class="fixed bottom-8 right-8 bg-blue-600 text-white px-6 py-3 rounded-3xl shadow-2xl">📍 Getting location...</div>`; document.body.appendChild(status);
+    let lat = 17.66, lng = 75.91;
+    if (navigator.geolocation) {
+        try {
+            const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, {timeout:7000}));
+            lat = pos.coords.latitude; lng = pos.coords.longitude;
+        } catch(e) {}
+    }
+    const mapLink = `https://maps.google.com/?q=${lat},${lng}`;
+    const message = encodeURIComponent(`📍 My live location right now (Solapur): ${mapLink}\nSent from AI Smart Elder Care`);
+    for (const c of familyContacts) {
+        window.open(`https://wa.me/${c.phone}?text=${message}`, '_blank');
+        await new Promise(r => setTimeout(r, 400));
+    }
+    status.remove();
+    speak("Location shared with family ❤️");
+}
+
+let mediaRecorder, audioChunks = [], audioBlob, timerInterval, seconds = 0;
+function startVoiceMessage() {
+    document.getElementById('voice-modal').classList.remove('hidden');
+    document.getElementById('send-voice-btn').classList.add('hidden');
+    document.getElementById('voice-preview').classList.add('hidden');
+    audioChunks = []; seconds = 0; document.getElementById('timer').textContent = "00:00";
+}
+function toggleVoiceRecording() {
+    const btn = document.getElementById('record-btn');
+    const status = document.getElementById('recording-status');
+    if (!mediaRecorder || mediaRecorder.state === "inactive") {
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+            mediaRecorder.onstop = () => {
+                audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                const audioURL = URL.createObjectURL(audioBlob);
+                const preview = document.getElementById('voice-preview');
+                preview.src = audioURL; preview.classList.remove('hidden');
+                document.getElementById('send-voice-btn').classList.remove('hidden');
+                clearInterval(timerInterval);
+            };
+            mediaRecorder.start();
+            status.textContent = "Recording...";
+            btn.innerHTML = `<i class="fas fa-stop"></i>`;
+            btn.classList.add('bg-red-700');
+            seconds = 0;
+            timerInterval = setInterval(() => {
+                seconds++;
+                const m = Math.floor(seconds/60).toString().padStart(2,'0');
+                const s = (seconds%60).toString().padStart(2,'0');
+                document.getElementById('timer').textContent = `${m}:${s}`;
+                if (seconds >= 15) toggleVoiceRecording();
+            }, 1000);
+        });
+    } else {
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach(t => t.stop());
+        btn.innerHTML = `<i class="fas fa-microphone"></i>`;
+        btn.classList.remove('bg-red-700');
+        status.textContent = "Recording finished";
+    }
+}
+function hideVoiceModal() {
+    document.getElementById('voice-modal').classList.add('hidden');
+    if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+    clearInterval(timerInterval);
+}
+async function sendVoiceToFamily() {
+    if (!audioBlob || familyContacts.length === 0) return alert("No recording or no contacts");
+    hideVoiceModal();
+    const message = encodeURIComponent(`🎤 Voice message from me ❤️\nPlease listen! Sent from AI Smart Elder Care`);
+    for (const c of familyContacts) {
+        window.open(`https://wa.me/${c.phone}?text=${message}`, '_blank');
+        await new Promise(r => setTimeout(r, 500));
+    }
+    speak("Voice message sent to family!");
+}
+
+function updateLanguage() {
+    const t = translations[currentLanguage];
+    document.getElementById('app-title').innerHTML = t.appTitle;
+    document.getElementById('home-greeting').innerHTML = t.homeGreeting;
+    document.getElementById('nav-home').textContent = t.navHome;
+    document.getElementById('nav-chat').textContent = t.navChat;
+    document.getElementById('nav-health').textContent = t.navHealth;
+    document.getElementById('nav-reminders').textContent = t.navReminders;
+    document.getElementById('nav-helpers').textContent = t.navHelpers;
+    document.getElementById('nav-family').textContent = t.navFamily;
+    document.getElementById('nav-emergency').textContent = t.navEmergency;
+    document.getElementById('med-title').textContent = t.medTitle;
+    document.getElementById('health-heading').textContent = t.healthHeading;
+    document.getElementById('health-subtitle').textContent = t.healthSubtitle;
+    document.getElementById('remedies-title').textContent = t.remediesTitle;
+    document.getElementById('reminders-heading').textContent = t.remindersHeading;
+    document.getElementById('quick-title').textContent = t.quickTitle;
+    document.getElementById('my-reminders-title').textContent = t.myRemindersTitle;
+    document.getElementById('modal-title').textContent = t.modalTitle;
+    document.getElementById('helpers-heading').textContent = t.helpersHeading;
+    document.getElementById('family-heading').textContent = t.familyHeading;
+    document.getElementById('emergency-text').textContent = t.emergencyText;
+    document.getElementById('voice-status').textContent = t.voiceStatus;
+    document.getElementById('ambulance-heading').innerHTML = t.ambulanceHeading;
+    document.getElementById('ambulance-btn-text').textContent = t.ambulanceBtn;
+    document.getElementById('daily-update-btn-text').textContent = t.dailyUpdateBtn;
+    document.getElementById('location-btn-text').textContent = t.locationBtn;
+    document.getElementById('voice-btn-text').textContent = t.voiceBtn;
+    document.getElementById('mood-title').textContent = t.moodTitle;
+}
+function renderSymptomButtons() {
+    const container = document.getElementById('symptom-buttons');
+    container.innerHTML = commonSymptoms.map(sym => `<button onclick="toggleSymptom('${sym}')" id="sym-${sym.replace(/\s/g,'')}" class="symptom-chip bg-gray-100 hover:bg-gray-200 py-5 px-6 rounded-3xl text-lg font-medium">${sym}</button>`).join('');
+}
+function toggleSymptom(sym) {
+    const btn = document.getElementById(`sym-${sym.replace(/\s/g,'')}`);
+    if (selectedSymptoms.includes(sym)) {
+        selectedSymptoms = selectedSymptoms.filter(s => s !== sym); btn.classList.remove('active');
+    } else {
+        selectedSymptoms.push(sym); btn.classList.add('active');
+    }
+}
+function renderIndianRemedies() {
+    const container = document.getElementById('indian-remedies');
+    const data = indianRemediesData[currentLanguage];
+    container.innerHTML = data.map(r => `<div class="bg-emerald-50 border border-emerald-200 p-5 rounded-3xl text-center"><div class="font-semibold text-lg">${r.name}</div><div class="text-sm text-gray-600 mt-1">${r.desc}</div></div>`).join('');
+}
+function renderQuickPresets() {
+    document.getElementById('quick-reminders').innerHTML = quickPresets.map((p, i) => `<button onclick="addQuickReminder(${i})" class="bg-white border border-[#00b8a9]/30 hover:border-[#00b8a9] p-6 rounded-3xl text-left"><div class="font-medium">${p.title}</div><div class="text-sm text-gray-600">${p.time}</div></button>`).join('');
+}
+function addQuickReminder(i) {
+    const p = quickPresets[i];
+    reminders.unshift({ id: Date.now(), title: p.title, time: p.time });
+    localStorage.setItem('reminders', JSON.stringify(reminders));
+    renderRemindersList(); speak(`Reminder added: ${p.title}`);
+}
+function renderRemindersList() {
+    const container = document.getElementById('reminders-list');
+    if (reminders.length === 0) { container.innerHTML = `<p class="text-gray-500 text-center py-12">No reminders yet.</p>`; return; }
+    container.innerHTML = reminders.map(r => `<div class="bg-white border p-5 rounded-3xl flex justify-between"><div><div class="font-medium">${r.title}</div><div class="text-sm text-gray-600">${r.time}</div></div><button onclick="deleteReminder(${r.id})" class="text-red-500">Delete</button></div>`).join('');
+}
+function deleteReminder(id) { reminders = reminders.filter(r => r.id !== id); localStorage.setItem('reminders', JSON.stringify(reminders)); renderRemindersList(); }
+async function analyzeSymptoms() {
+    const extra = document.getElementById('symptoms-input').value.trim();
+    let symptoms = [...selectedSymptoms]; if (extra) symptoms.push(extra);
+    if (symptoms.length === 0) return alert("Please select at least one symptom.");
+    const resultDiv = document.getElementById('health-result'); const btn = document.getElementById('analyze-btn');
+    btn.disabled = true; btn.innerHTML = 'Analyzing...';
+    resultDiv.innerHTML = `<div class="text-center py-8"><i class="fas fa-spinner animate-spin text-5xl text-[#00b8a9]"></i></div>`;
+    try {
+        const reply = await callGroq(`Elderly has: ${symptoms.join(", ")}. Give very short advice with 1-2 safe home remedies.`);
+        resultDiv.innerHTML = `<div class="bg-emerald-50 p-6 rounded-3xl text-base">${reply}</div>`;
+    } catch (e) {
+        resultDiv.innerHTML = `<div class="bg-red-100 p-6 rounded-3xl text-center">Could not get advice. Please check Groq key.</div>`;
+    }
+    btn.disabled = false; btn.innerHTML = 'Get Simple Advice';
+}
+async function sendChatMessage() {
+    const input = document.getElementById('chat-input'); const text = input.value.trim(); if (!text) return;
+    input.value = '';
+    const chat = document.getElementById('chat-window');
+    chat.innerHTML += `<div class="chat-bubble bg-white ml-auto"><p>${text}</p></div>`;
+    chat.scrollTop = chat.scrollHeight;
+    const thinking = document.createElement('div'); thinking.className = "chat-bubble bg-[#00b8a9] text-white"; thinking.innerHTML = `<p class="thinking">Groq is thinking...</p>`; chat.appendChild(thinking); chat.scrollTop = chat.scrollHeight;
+    try {
+        const reply = await callGroq(`Elderly user said: ${text}`);
+        thinking.remove(); chat.innerHTML += `<div class="chat-bubble bg-[#00b8a9] text-white"><p>${reply}</p></div>`; chat.scrollTop = chat.scrollHeight; speak(reply);
+    } catch (e) { thinking.remove(); handleAIError(e, chat); }
+}
+function handleAIError(e, container) {
+    let msg = "Try again later.";
+    if (e.message === "NO_KEY") msg = "Please set Groq API Key first.";
+    else if (e.message === "RATE_LIMIT") msg = "Too many requests. Wait 15 seconds.";
+    container.innerHTML += `<div class="chat-bubble bg-red-100 text-red-700"><p>${msg}</p></div>`; container.scrollTop = container.scrollHeight; speak(msg);
+}
+function speak(text) {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = currentLanguage === 'hi' ? 'hi-IN' : currentLanguage === 'mr' ? 'mr-IN' : 'en-IN';
+    speechSynthesis.speak(u);
+}
+function startVoiceAssistant() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return alert("Voice not supported in this browser.");
+    const r = new SR(); r.lang = currentLanguage === 'hi' ? 'hi-IN' : currentLanguage === 'mr' ? 'mr-IN' : 'en-IN';
+    document.getElementById('voice-status').innerHTML = `🎤 Listening...`;
+    r.onresult = (e) => {
+        const text = e.results[0][0].transcript.trim();
+        document.getElementById('voice-status').innerHTML = `✅ ${text}`;
+        processVoiceCommand(text);
+        setTimeout(() => document.getElementById('voice-status').innerHTML = translations[currentLanguage].voiceStatus, 2500);
+    };
+    r.start();
+}
+async function processVoiceCommand(text) {
+    const lower = text.toLowerCase();
+    if (lower.includes("emergency") || lower.includes("ambulance")) return triggerEmergency();
+    if (lower.includes("health")) return navigateTo(2);
+    if (lower.includes("reminder")) return navigateTo(3);
+    navigateTo(1); setTimeout(() => sendVoiceToChat(text), 500);
+}
+function sendVoiceToChat(text) {
+    const chat = document.getElementById('chat-window');
+    chat.innerHTML += `<div class="chat-bubble bg-white ml-auto"><p>${text}</p></div>`; chat.scrollTop = chat.scrollHeight;
+    const thinking = document.createElement('div'); thinking.className = "chat-bubble bg-[#00b8a9] text-white"; thinking.innerHTML = `<p class="thinking">Thinking...</p>`; chat.appendChild(thinking); chat.scrollTop = chat.scrollHeight;
+    callGroq(`Elderly user said: ${text}`).then(reply => {
+        thinking.remove(); chat.innerHTML += `<div class="chat-bubble bg-[#00b8a9] text-white"><p>${reply}</p></div>`; chat.scrollTop = chat.scrollHeight; speak(reply);
+    }).catch(e => { thinking.remove(); handleAIError(e, chat); });
+}
+function voiceToChat() { navigateTo(1); setTimeout(startVoiceAssistant, 400); }
+function showAddReminderModal() { document.getElementById('reminder-modal').classList.remove('hidden'); }
+function hideReminderModal() { document.getElementById('reminder-modal').classList.add('hidden'); }
+function saveReminder() {
+    const title = document.getElementById('reminder-title').value.trim();
+    const time = document.getElementById('reminder-time').value;
+    if (!title || !time) return alert("Please fill both");
+    reminders.unshift({ id: Date.now(), title, time });
+    localStorage.setItem('reminders', JSON.stringify(reminders));
+    hideReminderModal(); renderRemindersList(); speak("Reminder saved");
+}
+function navigateTo(page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('nav-' + page).classList.add('active');
+}
+function changeLanguage(lang) {
+    currentLanguage = lang;
+    document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('lang-' + lang).classList.add('active');
+    updateLanguage(); renderIndianRemedies();
+}
+function configureGroqKey() {
+    const key = prompt("Paste your Groq API Key:", GROQ_API_KEY || "");
+    if (key) {
+        GROQ_API_KEY = key.trim(); localStorage.setItem('groq_key', GROQ_API_KEY);
+        document.getElementById('api-status').innerHTML = `<span class="text-emerald-600">✅ Groq Connected</span>`;
+        alert("Groq connected! All features should now work.");
+    }
+}
+
+// ==================== ONLY THIS PART IS UPDATED (REAL NIGHT WEATHER) ====================
+async function fetchWeather() {
+    try {
+        const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=17.66&longitude=75.91&current_weather=true&timezone=Asia/Kolkata');
+        const data = await res.json();
+        const w = data.current_weather;
+
+        const temp = Math.round(w.temperature);
+        const isDay = w.is_day === 1;
+        const code = w.weathercode;
+
+        let icon = '☀️';
+        let desc = 'Clear';
+
+        if (code === 0) {
+            icon = isDay ? '☀️' : '🌙';
+            desc = isDay ? 'Sunny' : 'Clear Night';
+        } else if ([1,2,3].includes(code)) {
+            icon = isDay ? '⛅' : '☁️';
+            desc = isDay ? 'Partly Cloudy' : 'Cloudy Night';
+        } else if ([45,48].includes(code)) {
+            icon = '🌫️';
+            desc = 'Foggy';
+        } else if ([51,53,55,56,57].includes(code)) {
+            icon = '🌧️';
+            desc = 'Light Rain';
+        } else if ([61,63,65,66,67].includes(code)) {
+            icon = '🌧️';
+            desc = 'Rain';
+        } else if ([71,73,75,77].includes(code)) {
+            icon = '❄️';
+            desc = 'Snow';
+        } else if ([80,81,82].includes(code)) {
+            icon = '🌦️';
+            desc = 'Showers';
+        } else if ([95,96,99].includes(code)) {
+            icon = '⛈️';
+            desc = 'Thunderstorm';
+        }
+
+        document.getElementById('weather-temp').textContent = `${temp}°C`;
+        document.getElementById('weather-icon').innerHTML = icon;
+        document.getElementById('weather-desc').textContent = `${desc} • Solapur`;
+
+        const advice = isDay 
+            ? '💧 Stay hydrated, avoid direct sun' 
+            : '🌙 Cool night in Solapur. Stay warm and safe!';
+        document.getElementById('weather-advice').innerHTML = advice;
+
+    } catch(e) {
+        console.log("Weather API error – using fallback");
+        document.getElementById('weather-temp').textContent = '31°C';
+        document.getElementById('weather-icon').innerHTML = '🌙';
+        document.getElementById('weather-desc').textContent = 'Partly Cloudy • Solapur (Night)';
+        document.getElementById('weather-advice').innerHTML = '🌙 Cool night – stay warm!';
+    }
+}
+// =====================================================================================
+
+function startTeleconsult() {
+    if (confirm(currentLanguage === 'mr' ? "eSanjeevani वर मोफत डॉक्टरशी बोलायचे?" : currentLanguage === 'hi' ? "eSanjeevani पर मुफ्त डॉक्टर से बात करें?" : "Open free government teleconsult with doctor?")) {
+        window.open("https://esanjeevani.mohfw.gov.in/", "_blank");
+        speak("Opening eSanjeevani free video doctor call");
+    }
+}
+
+window.onload = () => {
+    renderMedications();
+    renderSymptomButtons();
+    renderQuickPresets();
+    renderRemindersList();
+    renderHelpers();
+    renderIndianRemedies();
+    renderFamilyContacts();
+    updateLanguage();
+    fetchWeather();
+    if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
+    if (GROQ_API_KEY) document.getElementById('api-status').innerHTML = `<span class="text-emerald-600">✅ Groq Connected</span>`;
+    setTimeout(() => speak("Namaste! How can I help you today?"), 800);
+};
+</script>
+</body>
+</html>
